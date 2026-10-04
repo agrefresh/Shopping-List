@@ -56,14 +56,33 @@
     border:none; border-radius:10px; padding:11px 14px; font-size:0.95rem; cursor:pointer;
     background:var(--accent); color:#fff;
   }
+  .link-btn{
+    background:none; color:var(--accent); padding:4px 0; font-size:0.85rem; text-decoration:underline;
+  }
   ul{list-style:none; margin:0; padding:0;}
-  li{display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid var(--border);}
+  li{display:flex; align-items:center; gap:8px; padding:12px 4px; border-bottom:1px solid var(--border);}
   li .name{flex:1; word-break:break-word;}
   li.in-list .name{color:var(--accent); font-weight:600;}
   .dot{width:9px; height:9px; border-radius:50%; border:2px solid var(--border); flex:none;}
   li.in-list .dot{background:var(--accent); border-color:var(--accent);}
   .empty{color:var(--muted); text-align:center; padding:32px 0;}
-  .del{color:var(--danger); font-size:0.85rem;}
+  .del{color:var(--danger); font-size:0.85rem; flex:none;}
+  select.cat-select{
+    padding:6px 8px; border-radius:8px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); font-size:0.82rem; flex:none; max-width:110px;
+  }
+  .cat-group h3{
+    font-size:0.75rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+    margin:18px 0 2px; padding-top:4px;
+  }
+  .cat-group:first-child h3{margin-top:4px;}
+  .cat-manage{
+    margin:10px 0 4px; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--card);
+  }
+  .cat-manage.hidden{display:none;}
+  .cat-row{display:flex; align-items:center; gap:8px; padding:6px 0;}
+  .cat-row .name{flex:1;}
+  .cat-row .del{cursor:pointer;}
 </style>
 </head>
 <body>
@@ -80,6 +99,14 @@
       <input type="text" id="search" placeholder="Search or add an item...">
       <button id="addBtn">Add</button>
     </div>
+    <span id="toggleCatManage" class="link-btn" style="cursor:pointer;">Manage categories</span>
+    <div id="catManage" class="cat-manage hidden">
+      <div class="add-row" style="margin:0 0 6px;">
+        <input type="text" id="newCatName" placeholder="New category name">
+        <button id="addCatBtn">Add</button>
+      </div>
+      <div id="catListManage"></div>
+    </div>
     <ul id="masterList"></ul>
     <div id="masterEmpty" class="empty" style="display:none">No items yet — add your first one above.</div>
   </div>
@@ -89,13 +116,21 @@
   </div>
 </main>
 <script>
-let state = { master: [], shopping: [] };
+let state = { master: [], shopping: [], categories: [] };
 const KEY = "grocery-app-state";
+const UNCAT = "__uncat__";
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function load(){
-  try{ const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : { master: [], shopping: [] }; }
-  catch(e){ return { master: [], shopping: [] }; }
+  try{
+    const raw = localStorage.getItem(KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      master: parsed.master || [],
+      shopping: parsed.shopping || [],
+      categories: parsed.categories || []
+    };
+  }catch(e){ return { master: [], shopping: [], categories: [] }; }
 }
 function save(newState){
   state = newState;
@@ -110,38 +145,120 @@ function addItem(name){
   name = name.trim();
   if(!name) return;
   if(state.master.some(i=>i.name.toLowerCase()===name.toLowerCase())) return;
-  save({ ...state, master:[...state.master, {id:uid(), name}] });
+  save({ ...state, master:[...state.master, {id:uid(), name, categoryId:null}] });
 }
 function deleteMaster(id){
-  save({ master: state.master.filter(i=>i.id!==id), shopping: state.shopping.filter(x=>x!==id) });
+  save({ ...state, master: state.master.filter(i=>i.id!==id), shopping: state.shopping.filter(x=>x!==id) });
+}
+function assignCategory(itemId, categoryId){
+  const cid = categoryId === UNCAT ? null : categoryId;
+  save({ ...state, master: state.master.map(i => i.id===itemId ? {...i, categoryId:cid} : i) });
+}
+function addCategory(name){
+  name = name.trim();
+  if(!name) return;
+  if(state.categories.some(c=>c.name.toLowerCase()===name.toLowerCase())) return;
+  save({ ...state, categories:[...state.categories, {id:uid(), name}] });
+}
+function deleteCategory(catId){
+  save({
+    ...state,
+    categories: state.categories.filter(c=>c.id!==catId),
+    master: state.master.map(i => i.categoryId===catId ? {...i, categoryId:null} : i)
+  });
 }
 function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function categoryName(id){
+  if(!id) return "Uncategorized";
+  const c = state.categories.find(c=>c.id===id);
+  return c ? c.name : "Uncategorized";
+}
+function orderedCategoryIds(){
+  // categories in creation order, then uncategorized last
+  return [...state.categories.map(c=>c.id), null];
+}
+function catSelectOptions(selectedId){
+  const opts = state.categories.map(c =>
+    `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${escapeHtml(c.name)}</option>`
+  ).join('');
+  return `<option value="${UNCAT}" ${!selectedId?'selected':''}>No category</option>` + opts;
+}
+
+function itemRowHtml(item, shoppingSet){
+  return `
+    <li class="${shoppingSet.has(item.id)?'in-list':''}" data-id="${item.id}">
+      <span class="dot" data-action="toggle"></span>
+      <span class="name" data-action="toggle">${escapeHtml(item.name)}</span>
+      <select class="cat-select" data-action="recat">${catSelectOptions(item.categoryId)}</select>
+      <span class="del" data-action="delete">Remove</span>
+    </li>`;
+}
+
 function render(){
   const q = document.getElementById('search').value.trim().toLowerCase();
   const shoppingSet = new Set(state.shopping);
-  const filtered = state.master
-    .filter(i => i.name.toLowerCase().includes(q))
-    .sort((a,b)=> (shoppingSet.has(b.id)?1:0) - (shoppingSet.has(a.id)?1:0) || a.name.localeCompare(b.name));
+  const filtered = state.master.filter(i => i.name.toLowerCase().includes(q));
 
-  document.getElementById('masterList').innerHTML = filtered.map(i => `
-    <li class="${shoppingSet.has(i.id)?'in-list':''}" data-id="${i.id}">
-      <span class="dot" data-action="toggle"></span>
-      <span class="name" data-action="toggle">${escapeHtml(i.name)}</span>
-      <span class="del" data-action="delete">Remove</span>
-    </li>`).join('');
+  // group by category, in category-creation order, uncategorized last
+  const groups = {};
+  orderedCategoryIds().forEach(cid => groups[cid === null ? UNCAT : cid] = []);
+  filtered.forEach(i => {
+    const key = i.categoryId || UNCAT;
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  });
+  Object.values(groups).forEach(arr => arr.sort((a,b)=>a.name.localeCompare(b.name)));
+
+  let html = '';
+  orderedCategoryIds().forEach(cid => {
+    const key = cid === null ? UNCAT : cid;
+    const items = groups[key] || [];
+    if(!items.length) return;
+    html += `<div class="cat-group"><h3>${escapeHtml(categoryName(cid))}</h3><ul>`;
+    html += items.map(i => itemRowHtml(i, shoppingSet)).join('');
+    html += `</ul></div>`;
+  });
+  document.getElementById('masterList').innerHTML = html;
   document.getElementById('masterEmpty').style.display = filtered.length ? 'none' : 'block';
 
-  const shopItems = state.master.filter(i => shoppingSet.has(i.id)).sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById('shopList').innerHTML = shopItems.map(i => `
-    <li data-id="${i.id}">
-      <span class="dot in-list"></span>
-      <span class="name" data-action="toggle">${escapeHtml(i.name)}</span>
-    </li>`).join('');
+  // shopping list, grouped by category too
+  const shopItems = state.master.filter(i => shoppingSet.has(i.id));
+  const shopGroups = {};
+  shopItems.forEach(i => {
+    const key = i.categoryId || UNCAT;
+    if(!shopGroups[key]) shopGroups[key] = [];
+    shopGroups[key].push(i);
+  });
+  Object.values(shopGroups).forEach(arr => arr.sort((a,b)=>a.name.localeCompare(b.name)));
+  let shopHtml = '';
+  orderedCategoryIds().forEach(cid => {
+    const key = cid === null ? UNCAT : cid;
+    const items = shopGroups[key] || [];
+    if(!items.length) return;
+    shopHtml += `<div class="cat-group"><h3>${escapeHtml(categoryName(cid))}</h3><ul>`;
+    shopHtml += items.map(i => `
+      <li data-id="${i.id}">
+        <span class="dot in-list"></span>
+        <span class="name" data-action="toggle">${escapeHtml(i.name)}</span>
+      </li>`).join('');
+    shopHtml += `</ul></div>`;
+  });
+  document.getElementById('shopList').innerHTML = shopHtml;
   document.getElementById('shopEmpty').style.display = shopItems.length ? 'none' : 'block';
 
   const badge = document.getElementById('countBadge');
   if(shopItems.length){ badge.style.display='inline-block'; badge.textContent = shopItems.length; }
   else { badge.style.display = 'none'; }
+
+  // category management list
+  document.getElementById('catListManage').innerHTML = state.categories.length
+    ? state.categories.map(c => `
+        <div class="cat-row" data-cat-id="${c.id}">
+          <span class="name">${escapeHtml(c.name)}</span>
+          <span class="del" data-action="delete-cat">Delete</span>
+        </div>`).join('')
+    : `<div style="color:var(--muted); font-size:0.85rem; padding:4px 0;">No categories yet.</div>`;
 }
 
 document.querySelectorAll('.tab').forEach(tab=>{
@@ -161,6 +278,25 @@ document.getElementById('search').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ addItem(e.target.value); e.target.value=''; }
 });
 document.getElementById('search').addEventListener('input', render);
+
+document.getElementById('toggleCatManage').addEventListener('click', ()=>{
+  document.getElementById('catManage').classList.toggle('hidden');
+});
+document.getElementById('addCatBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('newCatName');
+  addCategory(input.value);
+  input.value='';
+});
+document.getElementById('newCatName').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ addCategory(e.target.value); e.target.value=''; }
+});
+document.getElementById('catListManage').addEventListener('click', e=>{
+  if(e.target.dataset.action==='delete-cat'){
+    const row = e.target.closest('[data-cat-id]');
+    if(row) deleteCategory(row.dataset.catId);
+  }
+});
+
 document.body.addEventListener('click', e=>{
   const li = e.target.closest('li[data-id]');
   if(!li) return;
@@ -168,6 +304,12 @@ document.body.addEventListener('click', e=>{
   const action = e.target.dataset.action;
   if(action==='delete') deleteMaster(id);
   else if(action==='toggle') toggleShopping(id);
+});
+document.body.addEventListener('change', e=>{
+  if(e.target.dataset.action==='recat'){
+    const li = e.target.closest('li[data-id]');
+    if(li) assignCategory(li.dataset.id, e.target.value);
+  }
 });
 
 state = load();
