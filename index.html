@@ -476,9 +476,9 @@ document.getElementById('mealList').addEventListener('click', e=>{
   const row = e.target.closest('.meal-row');
   if(!row) return;
   const id = row.dataset.id;
+  if(e.target.closest('.meal-header')){ toggleMealExpand(id); return; }
   const action = e.target.dataset.action;
-  if(action==='expand') toggleMealExpand(id);
-  else if(action==='add-shop') addMealToShopping(id);
+  if(action==='add-shop') addMealToShopping(id);
   else if(action==='edit-meal') openEditMealForm(id);
   else if(action==='delete-meal'){ if(confirm('Delete this meal?')) deleteMeal(id); }
 });
