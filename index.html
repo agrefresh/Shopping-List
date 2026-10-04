@@ -34,14 +34,14 @@
     background:var(--bg); z-index:2;
   }
   h1{font-size:1.25rem; margin:0 0 12px;}
-  .tabs{display:flex; gap:8px;}
+  .tabs{display:flex; gap:6px;}
   .tab{
-    flex:1; padding:10px; text-align:center; border-radius:10px; border:1px solid var(--border);
-    background:var(--card); cursor:pointer; font-size:0.95rem; color:var(--muted); position:relative;
+    flex:1; padding:10px 4px; text-align:center; border-radius:10px; border:1px solid var(--border);
+    background:var(--card); cursor:pointer; font-size:0.88rem; color:var(--muted); position:relative;
   }
   .tab.active{background:var(--accent-bg); color:var(--accent); border-color:var(--accent); font-weight:600;}
   .badge{
-    display:inline-block; min-width:18px; padding:0 5px; margin-left:6px; border-radius:9px;
+    display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; border-radius:9px;
     background:var(--accent); color:#fff; font-size:0.72rem; line-height:18px;
   }
   main{flex:1; overflow-y:auto; padding:0 16px 24px;}
@@ -56,9 +56,9 @@
     border:none; border-radius:10px; padding:11px 14px; font-size:0.95rem; cursor:pointer;
     background:var(--accent); color:#fff;
   }
-  .link-btn{
-    background:none; color:var(--accent); padding:4px 0; font-size:0.85rem; text-decoration:underline;
-  }
+  .btn-secondary{background:var(--border); color:var(--text);}
+  .btn-danger{background:none; color:var(--danger); text-decoration:underline; padding:8px 4px; cursor:pointer;}
+  .link-btn{background:none; color:var(--accent); padding:4px 0; font-size:0.85rem; text-decoration:underline; cursor:pointer; display:inline-block;}
   ul{list-style:none; margin:0; padding:0;}
   li{display:flex; align-items:center; gap:8px; padding:12px 4px; border-bottom:1px solid var(--border);}
   li .name{flex:1; word-break:break-word;}
@@ -66,7 +66,7 @@
   .dot{width:9px; height:9px; border-radius:50%; border:2px solid var(--border); flex:none;}
   li.in-list .dot{background:var(--accent); border-color:var(--accent);}
   .empty{color:var(--muted); text-align:center; padding:32px 0;}
-  .del{color:var(--danger); font-size:0.85rem; flex:none;}
+  .del{color:var(--danger); font-size:0.85rem; flex:none; cursor:pointer;}
   select.cat-select{
     padding:6px 8px; border-radius:8px; border:1px solid var(--border);
     background:var(--card); color:var(--text); font-size:0.82rem; flex:none; max-width:110px;
@@ -82,7 +82,18 @@
   .cat-manage.hidden{display:none;}
   .cat-row{display:flex; align-items:center; gap:8px; padding:6px 0;}
   .cat-row .name{flex:1;}
-  .cat-row .del{cursor:pointer;}
+  /* meals */
+  .chip{background:var(--accent-bg); color:var(--accent); padding:4px 10px; border-radius:14px; font-size:0.82rem; display:inline-flex; align-items:center; gap:6px;}
+  .chip .x{cursor:pointer; font-weight:700;}
+  li.meal-row{display:block; padding:12px 4px;}
+  .meal-header{display:flex; align-items:center; gap:8px; cursor:pointer;}
+  .meal-header .name{flex:1; font-weight:600;}
+  .meal-header .count{font-size:0.78rem; color:var(--muted); flex:none;}
+  .meal-body{padding:10px 0 2px 20px;}
+  .meal-body ul{margin-bottom:10px;}
+  .meal-body li{padding:5px 0; border-bottom:none; font-size:0.92rem;}
+  .meal-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .meal-actions button{font-size:0.85rem; padding:8px 10px;}
 </style>
 </head>
 <body>
@@ -90,7 +101,8 @@
   <h1>My Groceries</h1>
   <div class="tabs">
     <div class="tab active" data-tab="all">All Items</div>
-    <div class="tab" data-tab="shop">Shopping List<span id="countBadge" class="badge" style="display:none">0</span></div>
+    <div class="tab" data-tab="shop">Shopping<span id="countBadge" class="badge" style="display:none">0</span></div>
+    <div class="tab" data-tab="meals">Meals</div>
   </div>
 </header>
 <main>
@@ -99,7 +111,7 @@
       <input type="text" id="search" placeholder="Search or add an item...">
       <button id="addBtn">Add</button>
     </div>
-    <span id="toggleCatManage" class="link-btn" style="cursor:pointer;">Manage categories</span>
+    <span id="toggleCatManage" class="link-btn">Manage categories</span>
     <div id="catManage" class="cat-manage hidden">
       <div class="add-row" style="margin:0 0 6px;">
         <input type="text" id="newCatName" placeholder="New category name">
@@ -114,11 +126,32 @@
     <ul id="shopList"></ul>
     <div id="shopEmpty" class="empty">Nothing needed right now. Tap items on "All Items" to add them here.</div>
   </div>
+  <div id="panel-meals" class="panel">
+    <div class="add-row" style="margin-bottom:6px;">
+      <button id="newMealBtn" style="width:100%;">+ New Meal</button>
+    </div>
+    <div id="mealForm" class="cat-manage hidden">
+      <input type="text" id="mealNameInput" placeholder="Meal name" style="width:100%; margin-bottom:8px;">
+      <div class="add-row" style="margin:0 0 8px;">
+        <input type="text" id="mealIngInput" placeholder="Add ingredient">
+        <button id="mealIngAddBtn">Add</button>
+      </div>
+      <div id="mealIngChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="mealSaveBtn">Save Meal</button>
+        <button id="mealCancelBtn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+    <ul id="mealList"></ul>
+    <div id="mealEmpty" class="empty" style="display:none">No meals yet — add one above.</div>
+  </div>
 </main>
 <script>
-let state = { master: [], shopping: [], categories: [] };
+let state = { master: [], shopping: [], categories: [], meals: [] };
 const KEY = "grocery-app-state";
 const UNCAT = "__uncat__";
+let mealFormState = null;
+let expandedMeals = new Set();
 
 function uid(){ return Math.random().toString(36).slice(2,9); }
 function load(){
@@ -128,13 +161,17 @@ function load(){
     return {
       master: parsed.master || [],
       shopping: parsed.shopping || [],
-      categories: parsed.categories || []
+      categories: parsed.categories || [],
+      meals: parsed.meals || []
     };
-  }catch(e){ return { master: [], shopping: [], categories: [] }; }
+  }catch(e){ return { master: [], shopping: [], categories: [], meals: [] }; }
+}
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
 }
 function save(newState){
   state = newState;
-  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+  persist();
   render();
 }
 function toggleShopping(id){
@@ -167,24 +204,30 @@ function deleteCategory(catId){
     master: state.master.map(i => i.categoryId===catId ? {...i, categoryId:null} : i)
   });
 }
+// creates the master item if needed and persists immediately, without disturbing an in-progress meal form
+function ensureMasterItem(name){
+  name = name.trim();
+  const existing = state.master.find(i=>i.name.toLowerCase()===name.toLowerCase());
+  if(existing) return existing.id;
+  const id = uid();
+  state = { ...state, master: [...state.master, {id, name, categoryId:null}] };
+  persist();
+  render();
+  return id;
+}
 function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
 function categoryName(id){
   if(!id) return "Uncategorized";
   const c = state.categories.find(c=>c.id===id);
   return c ? c.name : "Uncategorized";
 }
-function orderedCategoryIds(){
-  // categories in creation order, then uncategorized last
-  return [...state.categories.map(c=>c.id), null];
-}
+function orderedCategoryIds(){ return [...state.categories.map(c=>c.id), null]; }
 function catSelectOptions(selectedId){
   const opts = state.categories.map(c =>
     `<option value="${c.id}" ${c.id===selectedId?'selected':''}>${escapeHtml(c.name)}</option>`
   ).join('');
   return `<option value="${UNCAT}" ${!selectedId?'selected':''}>No category</option>` + opts;
 }
-
 function itemRowHtml(item, shoppingSet){
   return `
     <li class="${shoppingSet.has(item.id)?'in-list':''}" data-id="${item.id}">
@@ -195,12 +238,112 @@ function itemRowHtml(item, shoppingSet){
     </li>`;
 }
 
+// ---- meals ----
+function openNewMealForm(){
+  mealFormState = {mode:'new', mealId:null, name:'', ingredients:[]};
+  renderMealForm();
+  document.getElementById('mealForm').classList.remove('hidden');
+}
+function openEditMealForm(mealId){
+  const meal = state.meals.find(m=>m.id===mealId);
+  if(!meal) return;
+  mealFormState = {
+    mode:'edit', mealId, name: meal.name,
+    ingredients: meal.ingredientIds.map(id=>{
+      const item = state.master.find(i=>i.id===id);
+      return item ? {id, name:item.name} : null;
+    }).filter(Boolean)
+  };
+  renderMealForm();
+  document.getElementById('mealForm').classList.remove('hidden');
+}
+function closeMealForm(){
+  mealFormState = null;
+  document.getElementById('mealForm').classList.add('hidden');
+}
+function renderMealForm(){
+  if(!mealFormState) return;
+  document.getElementById('mealNameInput').value = mealFormState.name;
+  document.getElementById('mealIngChips').innerHTML = mealFormState.ingredients.map(ing => `
+    <span class="chip" data-ing-id="${ing.id}">${escapeHtml(ing.name)}<span class="x" data-action="remove-ing">×</span></span>
+  `).join('');
+}
+function addIngredientToForm(name){
+  name = name.trim();
+  if(!name || !mealFormState) return;
+  if(mealFormState.ingredients.some(i=>i.name.toLowerCase()===name.toLowerCase())) return;
+  const id = ensureMasterItem(name);
+  mealFormState.ingredients.push({id, name});
+  renderMealForm();
+}
+function removeIngredientFromForm(id){
+  if(!mealFormState) return;
+  mealFormState.ingredients = mealFormState.ingredients.filter(i=>i.id!==id);
+  renderMealForm();
+}
+function saveMealForm(){
+  if(!mealFormState) return;
+  const name = document.getElementById('mealNameInput').value.trim();
+  if(!name) return;
+  const ingredientIds = mealFormState.ingredients.map(i=>i.id);
+  if(mealFormState.mode==='new'){
+    save({ ...state, meals: [...state.meals, {id:uid(), name, ingredientIds}] });
+  } else {
+    save({ ...state, meals: state.meals.map(m => m.id===mealFormState.mealId ? {...m, name, ingredientIds} : m) });
+  }
+  closeMealForm();
+}
+function deleteMeal(id){
+  expandedMeals.delete(id);
+  save({ ...state, meals: state.meals.filter(m=>m.id!==id) });
+}
+function addMealToShopping(mealId){
+  const meal = state.meals.find(m=>m.id===mealId);
+  if(!meal) return;
+  const shoppingSet = new Set(state.shopping);
+  meal.ingredientIds.forEach(id=>{
+    if(state.master.some(i=>i.id===id)) shoppingSet.add(id);
+  });
+  save({ ...state, shopping:[...shoppingSet] });
+}
+function toggleMealExpand(id){
+  if(expandedMeals.has(id)) expandedMeals.delete(id); else expandedMeals.add(id);
+  renderMeals();
+}
+function renderMeals(){
+  const list = document.getElementById('mealList');
+  const meals = state.meals.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  list.innerHTML = meals.map(m=>{
+    const expanded = expandedMeals.has(m.id);
+    const ingNames = m.ingredientIds
+      .map(id => { const item = state.master.find(i=>i.id===id); return item ? item.name : null; })
+      .filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    return `
+      <li class="meal-row" data-id="${m.id}">
+        <div class="meal-header" data-action="expand">
+          <span class="caret">${expanded?'▾':'▸'}</span>
+          <span class="name">${escapeHtml(m.name)}</span>
+          <span class="count">${ingNames.length} item${ingNames.length===1?'':'s'}</span>
+        </div>
+        ${expanded ? `
+        <div class="meal-body">
+          <ul>${ingNames.map(n=>`<li>${escapeHtml(n)}</li>`).join('') || '<li style="color:var(--muted);">No ingredients yet.</li>'}</ul>
+          <div class="meal-actions">
+            <button data-action="add-shop">Add to Shopping List</button>
+            <button class="btn-secondary" data-action="edit-meal">Edit</button>
+            <span class="btn-danger" data-action="delete-meal">Delete</span>
+          </div>
+        </div>` : ''}
+      </li>`;
+  }).join('');
+  document.getElementById('mealEmpty').style.display = meals.length ? 'none' : 'block';
+}
+
 function render(){
   const q = document.getElementById('search').value.trim().toLowerCase();
   const shoppingSet = new Set(state.shopping);
   const filtered = state.master.filter(i => i.name.toLowerCase().includes(q));
 
-  // group by category, in category-creation order, uncategorized last
   const groups = {};
   orderedCategoryIds().forEach(cid => groups[cid === null ? UNCAT : cid] = []);
   filtered.forEach(i => {
@@ -222,7 +365,6 @@ function render(){
   document.getElementById('masterList').innerHTML = html;
   document.getElementById('masterEmpty').style.display = filtered.length ? 'none' : 'block';
 
-  // shopping list, grouped by category too
   const shopItems = state.master.filter(i => shoppingSet.has(i.id));
   const shopGroups = {};
   shopItems.forEach(i => {
@@ -251,7 +393,6 @@ function render(){
   if(shopItems.length){ badge.style.display='inline-block'; badge.textContent = shopItems.length; }
   else { badge.style.display = 'none'; }
 
-  // category management list
   document.getElementById('catListManage').innerHTML = state.categories.length
     ? state.categories.map(c => `
         <div class="cat-row" data-cat-id="${c.id}">
@@ -259,6 +400,8 @@ function render(){
           <span class="del" data-action="delete-cat">Delete</span>
         </div>`).join('')
     : `<div style="color:var(--muted); font-size:0.85rem; padding:4px 0;">No categories yet.</div>`;
+
+  renderMeals();
 }
 
 document.querySelectorAll('.tab').forEach(tab=>{
@@ -299,7 +442,7 @@ document.getElementById('catListManage').addEventListener('click', e=>{
 
 document.body.addEventListener('click', e=>{
   const li = e.target.closest('li[data-id]');
-  if(!li) return;
+  if(!li || li.classList.contains('meal-row')) return;
   const id = li.dataset.id;
   const action = e.target.dataset.action;
   if(action==='delete') deleteMaster(id);
@@ -310,6 +453,34 @@ document.body.addEventListener('change', e=>{
     const li = e.target.closest('li[data-id]');
     if(li) assignCategory(li.dataset.id, e.target.value);
   }
+});
+
+document.getElementById('newMealBtn').addEventListener('click', openNewMealForm);
+document.getElementById('mealIngAddBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('mealIngInput');
+  addIngredientToForm(input.value);
+  input.value='';
+});
+document.getElementById('mealIngInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); addIngredientToForm(e.target.value); e.target.value=''; }
+});
+document.getElementById('mealIngChips').addEventListener('click', e=>{
+  if(e.target.dataset.action==='remove-ing'){
+    const chip = e.target.closest('[data-ing-id]');
+    if(chip) removeIngredientFromForm(chip.dataset.ingId);
+  }
+});
+document.getElementById('mealSaveBtn').addEventListener('click', saveMealForm);
+document.getElementById('mealCancelBtn').addEventListener('click', closeMealForm);
+document.getElementById('mealList').addEventListener('click', e=>{
+  const row = e.target.closest('.meal-row');
+  if(!row) return;
+  const id = row.dataset.id;
+  const action = e.target.dataset.action;
+  if(action==='expand') toggleMealExpand(id);
+  else if(action==='add-shop') addMealToShopping(id);
+  else if(action==='edit-meal') openEditMealForm(id);
+  else if(action==='delete-meal'){ if(confirm('Delete this meal?')) deleteMeal(id); }
 });
 
 state = load();
